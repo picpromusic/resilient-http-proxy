@@ -1,0 +1,51 @@
+{
+  "version": "2.0.0",
+  "configurations": [
+    {
+      "name": "Debug Go Proxy",
+      "type": "go",
+      "request": "attach",
+      "mode": "remote",
+      "remotePath": "${workspaceFolder}/go",
+      "port": 2345,
+      "host": "127.0.0.1",
+      "program": "${workspaceFolder}/go/main.go",
+      "cwd": "${workspaceFolder}/go",
+      "apiVersion": 2
+    },
+    
+    {
+      "name": "Attach to Delve (Tests)",
+      "type": "go",
+      "request": "attach",
+      "mode": "remote",
+      "remotePath": "/workspaces/tkse-proxies",
+      "port": 40000,
+      "host": "127.0.0.1",
+      "program": "/workspaces/tkse-proxies/go/test/randombackend_test.go",
+      "showLog": true,
+      "preLaunchTask": "Start Delve for Tests"
+    },
+    {
+      "name": "Debug RandomBackend Test",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${workspaceFolder}/go/test/randombackend_test.go",
+      "showLog": true
+    },
+    {
+      "name": "Debug RandomBackend",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/go/cmd/randombackend/main.go",
+      "cwd": "${workspaceFolder}/go/cmd/randombackend",
+      "showLog": true,
+      "buildFlags": "",
+      "args": [
+        "--port", "5000"
+      ]
+    }
+  ]
+}

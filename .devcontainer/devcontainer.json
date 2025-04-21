@@ -1,0 +1,18 @@
+{
+    "name": "resilient-http-proxy",
+    "image": "mcr.microsoft.com/devcontainers/base:ubuntu", // Use a default base image
+    "features": {
+        "ghcr.io/devcontainers/features/go:1": {
+            "version": "latest"
+        },
+        "ghcr.io/devcontainers/features/java:1.6.3": {
+            "version": "21",
+            "installMaven": true,
+        },
+    },
+    "runArgs": [
+        "--network=host",
+    ],
+    
+    "remoteUser": "vscode"
+}
