@@ -5,6 +5,8 @@ type BackendConfig struct {
 	Args               []string
 	LogFile            string
 	WaitEveryNElements int
+	CurrentModified    bool
+	RandomEtag         bool
 }
 
 type ProxyConfig struct {
@@ -39,6 +41,18 @@ func WithBackendWaitEveryNElements(n int) BackendOption {
 func WithBackendLogFile(logFile string) BackendOption {
 	return func(cfg *BackendConfig) {
 		cfg.LogFile = logFile
+	}
+}
+
+func WithBackendCurrentModified(currentModified bool) BackendOption {
+	return func(cfg *BackendConfig) {
+		cfg.CurrentModified = currentModified
+	}
+}
+
+func WithBackendRandomEtag(randomEtag bool) BackendOption {
+	return func(cfg *BackendConfig) {
+		cfg.RandomEtag = randomEtag
 	}
 }
 

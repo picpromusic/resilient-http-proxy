@@ -4,11 +4,15 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
+	"math/rand"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"resilient-http-proxy/test"
+	"strings"
 	"testing"
-	"tkse-proxies/test"
+	"time"
 )
 
 func setup(t *testing.T) *exec.Cmd {
@@ -21,19 +25,29 @@ func setup(t *testing.T) *exec.Cmd {
 	return test.StartBackendService(t, test.WithBackendPort(test.BackendPort), test.WithBackendLogFile("/tmp/backend.log"))
 }
 
+func setupRandomEtagCurrentModified(t *testing.T) *exec.Cmd {
+	t.Helper()
+
+	// Create the data directory
+	test.CreateDataDir(t)
+
+	// Start the backend server
+	return test.StartBackendService(t, test.WithBackendPort(test.BackendPort), test.WithBackendLogFile("/tmp/backend.log"), test.WithBackendRandomEtag(true), test.WithBackendCurrentModified(true))
+}
+
 func teardown(cmd *exec.Cmd) {
 	fmt.Println("Shutting down the backend server...")
-	cmd.Process.Kill()
-	cmd.Wait()
+	if cmd != nil && cmd.Process != nil {
+		cmd.Process.Kill()
+		cmd.Wait()
+	}
 }
 
 func TestRandomBackend(t *testing.T) {
 	// Setup and teardown
 	cmd := setup(t)
 	t.Cleanup(func() {
-		if cmd != nil && cmd.Process != nil {
-			cmd.Process.Kill()
-		}
+		teardown(cmd)
 	})
 
 	// Step 1: Fetch 100000 bytes and save to data/complete
@@ -74,4 +88,69 @@ func TestRandomBackend(t *testing.T) {
 	// Step 6: Fetch each block using range requests and verify SHA1
 	test.VerifyRangeRequests(t, test.BaseURLBackend, test.DataDir, test.CompleteSize, test.BlockSize)
 	fmt.Println("All range requests verified successfully.")
+}
+
+func TestDefaultEtagAndModifiedSince(t *testing.T) {
+	// Setup and teardown
+	cmd := setup(t)
+	t.Cleanup(func() {
+		teardown(cmd)
+	})
+
+	randomSize := 100 + rand.Intn(900)
+
+	resp, err := http.Get(fmt.Sprintf("%s/generate/%d", test.BaseURLBackend, randomSize))
+	if err != nil {
+		t.Fatalf("Failed to fetch data: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status code 200, got %d", resp.StatusCode)
+	}
+
+	etag := resp.Header.Get("Etag")
+	lastModified := resp.Header.Get("Last-Modified")
+
+	if etag != fmt.Sprintf("%d", randomSize) {
+		t.Errorf("Expected ETag to be %d, got %s", randomSize, etag)
+	}
+
+	if lastModified != "Thu, 01 Jan 1970 00:00:00 GMT" {
+		t.Errorf("Expected Last-Modified to be Thu, 01 Jan 1970 00:00:00 GMT, got %s", lastModified)
+	}
+
+}
+
+func TestRandomEtagAndCurrentModifiedSince(t *testing.T) {
+	// Setup and teardown
+	cmd := setupRandomEtagCurrentModified(t)
+	t.Cleanup(func() {
+		teardown(cmd)
+	})
+
+	randomSize := 100 + rand.Intn(900)
+
+	resp, err := http.Get(fmt.Sprintf("%s/generate/%d", test.BaseURLBackend, randomSize))
+	if err != nil {
+		t.Fatalf("Failed to fetch data: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status code 200, got %d", resp.StatusCode)
+	}
+
+	etag := resp.Header.Get("Etag")
+	lastModified := resp.Header.Get("Last-Modified")
+
+	if etag == fmt.Sprintf("%d", randomSize) {
+		t.Errorf("Expected ETag to be %d, got %s", randomSize, etag)
+	}
+
+	currentDate := time.Now().Format("02 Jan 2006")
+	if !strings.Contains(lastModified, currentDate) {
+		t.Errorf("Expected Last-Modified to contain the current date %s, got %s", currentDate, lastModified)
+	}
+
 }

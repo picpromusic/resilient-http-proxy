@@ -176,6 +176,12 @@ func checkClientRangeRequest(r *http.Request, bytesSent *int64, end *int64, leng
 
 // Proxy handler with Accept-Ranges validation
 func proxyHandler(w http.ResponseWriter, r *http.Request, upstream string) {
+	hj, ok := w.(http.Hijacker)
+	if !ok {
+		http.Error(w, "Connection hijacking not supported", http.StatusInternalServerError)
+		return
+	}
+
 	if r.Method == http.MethodGet {
 		var bytesSent int64 = 0
 		var start int64 = -1
@@ -245,7 +251,14 @@ func proxyHandler(w http.ResponseWriter, r *http.Request, upstream string) {
 			if savedETag != "" && savedLastModified != "" {
 				if currentETag != savedETag || currentLastModified != savedLastModified {
 					logUpstream("Content changed during retries. ETag or Last-Modified mismatch.")
-					http.Error(w, fmt.Sprintf("Bad Gateway: %v", lastUpstreamError), http.StatusBadGateway)
+					conn, _, err := hj.Hijack()
+					if err != nil {
+						return
+					}
+
+					// Close the hijacked raw tcp connection.
+					_ = conn.Close()
+
 					return
 				}
 			} else {

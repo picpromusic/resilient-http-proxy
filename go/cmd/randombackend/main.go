@@ -13,6 +13,8 @@ import (
 
 var disableRanges bool
 var waitEveryNElements int
+var randomEtag bool
+var currentModified bool
 
 // RangeRequestHandler handles GET requests with range support
 func RangeRequestHandler(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +72,21 @@ func RangeRequestHandler(w http.ResponseWriter, r *http.Request) {
 	// Send response headers
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Length", strconv.Itoa(end-start+1))
+	if randomEtag {
+		etag := fmt.Sprintf("%x", rand.Int63())
+		w.Header().Set("ETag", etag)
+	} else {
+		w.Header().Set("ETag", numBytesStr)
+	}
+
+	log.Printf("CurrentModified: %v", currentModified)
+
+	if currentModified {
+		w.Header().Set("Last-Modified", time.Now().Format(http.TimeFormat))
+	} else {
+		w.Header().Set("Last-Modified", time.Unix(0, 0).Format(http.TimeFormat))
+	}
+
 	if !disableRanges && rangeHeader != "" {
 		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, numBytes))
 		w.WriteHeader(http.StatusPartialContent)
@@ -128,12 +145,23 @@ func RangeRequestHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	// Parse command-line arguments for port
 	port := flag.Int("port", 5000, "Port to run the server on (default: 5000)")
+	randomEtagPtr := flag.Bool("randomEtag", false, "Generate a random ETag for each request")
+	currentModifiedPtr := flag.Bool("currentModified", false, "Set Last-Modified to current time")
 	disableRangesPtr := flag.Bool("disableRanges", false, "Disable range requests")
 	waitEveryNElementsPtr := flag.Int("waitEveryNElements", 0, "Wait a second every N elements (default: 0, no wait)")
 
+	// Parse the flags
 	flag.Parse()
+
+	// Assign parsed values to global variables
 	disableRanges = *disableRangesPtr
 	waitEveryNElements = *waitEveryNElementsPtr
+	randomEtag = *randomEtagPtr
+	currentModified = *currentModifiedPtr // Ensure this is set correctly
+
+	// Log the parsed values for debugging
+	log.Printf("Parsed Flags - disableRanges: %v, waitEveryNElements: %d, randomEtag: %v, currentModified: %v", disableRanges, waitEveryNElements, randomEtag, currentModified)
+
 	http.HandleFunc("/generate/", RangeRequestHandler)
 
 	// Start the server

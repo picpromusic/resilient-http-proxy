@@ -4,7 +4,7 @@
     {
       "label": "Start Delve for Tests",
       "type": "shell",
-      "command": "dlv test ${workspaceFolder}/go/test/randombackend_test.go --headless --listen=:40000 --api-version=2 --accept-multiclient",
+      "command": "dlv test ${workspaceFolder}/go/test/randombackend/randombackend_test.go --headless --listen=:40000 --api-version=2 --accept-multiclient",
       "problemMatcher": [],
     }
   ]

@@ -19,10 +19,10 @@
       "type": "go",
       "request": "attach",
       "mode": "remote",
-      "remotePath": "/workspaces/tkse-proxies",
+      "remotePath": "/workspaces/resilient-http-proxy",
       "port": 40000,
       "host": "127.0.0.1",
-      "program": "/workspaces/tkse-proxies/go/test/randombackend_test.go",
+      "program": "/workspaces/resilient-http-proxy/go/test/randombackend/randombackend_test.go",
       "showLog": true,
       "preLaunchTask": "Start Delve for Tests"
     },
@@ -31,9 +31,18 @@
       "type": "go",
       "request": "launch",
       "mode": "test",
-      "program": "${workspaceFolder}/go/test/randombackend_test.go",
+      "program": "${workspaceFolder}/go/test/randombackend/randombackend_test.go",
       "showLog": true
     },
+    {
+      "name": "Debug Proxy Test",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${workspaceFolder}/go/test/proxy/proxy_test.go",
+      "showLog": true
+    },
+
     {
       "name": "Debug RandomBackend",
       "type": "go",

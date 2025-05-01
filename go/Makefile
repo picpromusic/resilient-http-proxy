@@ -17,7 +17,7 @@ install:
 .PHONY: test
 test: install
 	@echo "Running tests..."
-	$(GO) test ./... -v
+	$(GO) test ./... -v -timeout 120s
 
 # Clean up binaries
 .PHONY: clean

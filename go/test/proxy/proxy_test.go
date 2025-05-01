@@ -2,10 +2,13 @@ package test_proxy
 
 import (
 	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"os/exec"
+	"resilient-http-proxy/test"
 	"testing"
 	"time"
-	"tkse-proxies/test"
 )
 
 func TestProxyFunctionality(t *testing.T) {
@@ -194,6 +197,130 @@ func TestProxyHandlesRetriesIfBackendserverStartedToLate(t *testing.T) {
 	// Assert that the SHA1 hashes match
 	if sha1Complete != sha1CompleteUninterrupted {
 		t.Fatalf("SHA1 mismatch: complete=%s, uninterrupted=%s", sha1Complete, sha1CompleteUninterrupted)
+	}
+}
+
+func TestProxyStopsOnBackendCrashWithEtagChange(t *testing.T) {
+	test.CreateDataDir(t)
+
+	cmdBackend := test.StartBackendService(t,
+		test.WithBackendLogFile("/tmp/backend.log"),
+		test.WithBackendWaitEveryNElements(test.CompleteSize/10),
+		test.WithBackendRandomEtag(true),
+	)
+
+	test.StartProxyService(t, test.WithProxyLogFile("/tmp/proxy.log"))
+
+	done := make(chan error, 1)
+	go func() {
+		response, err := http.Get(fmt.Sprintf("%s/generate/%d", test.BaseURLProxy, test.CompleteSize))
+		if err != nil {
+			done <- err
+		}
+		// Write response body to test.CompleteFile
+		defer response.Body.Close()
+		out, err := os.Create(test.CompleteFile)
+		if err != nil {
+			done <- err
+		}
+		defer out.Close()
+		_, err = io.Copy(out, response.Body)
+		if err != nil {
+			done <- err
+		}
+		done <- nil
+	}()
+
+	// Wait for a few seconds to simulate the disconnection
+	time.Sleep(2 * time.Second)
+
+	cmdBackend.Process.Kill()
+
+	// Wait for a few seconds to simulate the disconnection
+	time.Sleep(5 * time.Second)
+
+	test.StartBackendService(t,
+		test.WithBackendLogFile("/tmp/backend.log"),
+		test.WithBackendRandomEtag(true),
+	)
+
+	// Wait for the download to complete
+	select {
+	case err := <-done:
+		if err != nil {
+			// Check if error is unexpected EOR
+			if err.Error() == "unexpected EOF" {
+				t.Log("Download failed due to unexpected EOF, which is expected in this case.")
+			} else {
+				t.Fatalf("Failed due to unexpected failure: %v", err)
+			}
+		} else {
+			t.Fatalf("Failed due to unexpected situation")
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatalf("Download timed out after network disconnection")
+	}
+}
+
+func TestProxyStopsOnBackendCrashWithModifiedSinceChange(t *testing.T) {
+	test.CreateDataDir(t)
+
+	cmdBackend := test.StartBackendService(t,
+		test.WithBackendLogFile("/tmp/backend.log"),
+		test.WithBackendWaitEveryNElements(test.CompleteSize/10),
+		test.WithBackendCurrentModified(true),
+	)
+
+	test.StartProxyService(t, test.WithProxyLogFile("/tmp/proxy.log"))
+
+	done := make(chan error, 1)
+	go func() {
+		response, err := http.Get(fmt.Sprintf("%s/generate/%d", test.BaseURLProxy, test.CompleteSize))
+		if err != nil {
+			done <- err
+		}
+		// Write response body to test.CompleteFile
+		defer response.Body.Close()
+		out, err := os.Create(test.CompleteFile)
+		if err != nil {
+			done <- err
+		}
+		defer out.Close()
+		_, err = io.Copy(out, response.Body)
+		if err != nil {
+			done <- err
+		}
+		done <- nil
+	}()
+
+	// Wait for a few seconds to simulate the disconnection
+	time.Sleep(2 * time.Second)
+
+	cmdBackend.Process.Kill()
+
+	// Wait for a few seconds to simulate the disconnection
+	time.Sleep(5 * time.Second)
+
+	test.StartBackendService(t,
+		test.WithBackendLogFile("/tmp/backend.log"),
+		test.WithBackendCurrentModified(true),
+	)
+
+	// Wait for the download to complete
+	select {
+	case err := <-done:
+		if err != nil {
+			// Check if error is unexpected EOR
+			if err.Error() == "unexpected EOF" {
+				t.Log("Download failed due to unexpected EOF, which is expected in this case.")
+			} else {
+				t.Fatalf("Failed due to unexpected failure: %v", err)
+			}
+		} else {
+			t.Fatalf("Failed due to unexpected situation")
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatalf("Download timed out after network disconnection")
 	}
 }
 

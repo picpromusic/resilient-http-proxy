@@ -126,6 +126,8 @@ func StartBackendService(t *testing.T, opts ...BackendOption) *exec.Cmd {
 		Args:               []string{},
 		LogFile:            "",
 		WaitEveryNElements: 0,
+		CurrentModified:    false, // Default value
+		RandomEtag:         false, // Default value
 	}
 
 	// Apply options
@@ -146,7 +148,17 @@ func StartBackendService(t *testing.T, opts ...BackendOption) *exec.Cmd {
 
 	// Start the backend service
 	fmt.Println("Starting the backend server...")
-	args := append([]string{"-port", strconv.Itoa(cfg.Port), "-waitEveryNElements", strconv.Itoa(cfg.WaitEveryNElements)}, cfg.Args...)
+	args := []string{
+		"-port", strconv.Itoa(cfg.Port),
+		"-waitEveryNElements", strconv.Itoa(cfg.WaitEveryNElements),
+	}
+	if cfg.CurrentModified {
+		args = append(args, "-currentModified")
+	}
+	if cfg.RandomEtag {
+		args = append(args, "-randomEtag")
+	}
+	args = append(args, cfg.Args...)
 	cmd := exec.Command("randombackend", args...)
 	if cfg.LogFile != "" {
 		// Pipe stdout and stderr to the log file
