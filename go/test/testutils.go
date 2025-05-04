@@ -114,6 +114,13 @@ func StartProxyService(t *testing.T, opts ...ProxyOption) *exec.Cmd {
 		}
 	})
 
+	// Wait for the backend server to be ready
+	err = waitForServerReady(cfg.Port, 10*time.Second)
+	if err != nil {
+		t.Fatalf("Failed to start backend server: %v", err)
+		cmd.Process.Kill()
+	}
+
 	return cmd
 }
 
@@ -176,7 +183,13 @@ func StartBackendService(t *testing.T, opts ...BackendOption) *exec.Cmd {
 		}
 	})
 
-	time.Sleep(2 * time.Second)
+	// Wait for the backend server to be ready
+	err = waitForServerReady(cfg.Port, 10*time.Second)
+	if err != nil {
+		t.Fatalf("Failed to start backend server: %v", err)
+		cmd.Process.Kill()
+	}
+
 	return cmd
 }
 

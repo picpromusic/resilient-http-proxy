@@ -74,8 +74,11 @@ func fetchWithRetry(baseURL, verb string, path string, retries int, rangeHeader 
 		}
 
 		if attempt < retries {
+			sleepTime := min(60, (attempt)*(attempt))
+			logUpstream("Retrying in %d seconds\n", sleepTime)
+			time.Sleep(retryDelay * time.Duration(sleepTime))
 			logUpstream("Retrying... (%d/%d)\n", attempt, retries)
-			time.Sleep(retryDelay)
+			continue
 		}
 	}
 	return nil, lastErr
@@ -221,7 +224,8 @@ func proxyHandler(w http.ResponseWriter, r *http.Request, upstream string) {
 				log.Printf("Error fetching from upstream (attempt %d): %v\n", attempt, err)
 				if attempt < maxRetries {
 					log.Printf("Retrying fetch... (%d/%d)\n", attempt, maxRetries)
-					time.Sleep(retryDelay)
+					sleepTime := min(60, (attempt)*(attempt))
+					time.Sleep(retryDelay * time.Duration(sleepTime))
 					continue
 				}
 				break
@@ -314,7 +318,7 @@ func proxyHandler(w http.ResponseWriter, r *http.Request, upstream string) {
 			}
 
 			// Copy headers from upstream response (only on the first attempt)
-			if bytesSent == start {
+			if bytesSent == start || (bytesSent == 0 && start == -1) {
 				for key, values := range resp.Header {
 					for _, value := range values {
 						log.Printf("Header: %s: %s\n", key, value)
@@ -378,7 +382,7 @@ func proxyHandler(w http.ResponseWriter, r *http.Request, upstream string) {
 			// Retry if an error occurred
 			if attempt < maxRetries {
 				attempt++
-				sleepTime := (attempt) * (attempt)
+				sleepTime := min(60, (attempt)*(attempt))
 				logUpstream("Retrying in %d seconds\n", sleepTime)
 				time.Sleep(retryDelay * time.Duration(sleepTime))
 				logUpstream("Retrying streaming... (%d/%d)\n", attempt, maxRetries)
